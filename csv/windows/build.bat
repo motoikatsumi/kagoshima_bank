@@ -1,31 +1,23 @@
 @echo off
-chcp 65001 >nul
 echo ============================================
-echo   鹿児島銀行レポート - Windows版ビルド
+echo   Kagin Report - Build exe
 echo ============================================
 echo.
 
-REM 前提: Python 3.9以上がインストール済み
-REM 前提: Google Chromeがインストール済み
-
-echo [1/3] 依存パッケージをインストール中...
+echo [1/3] Installing Python packages...
 pip install -r requirements_win.txt
 if %ERRORLEVEL% neq 0 (
-    echo エラー: パッケージのインストールに失敗しました
+    echo [ERROR] Package installation failed.
     pause
     exit /b 1
 )
 echo.
 
-echo [2/3] アイコンファイルを生成中...
+echo [2/3] Generating icon file...
 python generate_icon.py
 echo.
 
-echo [3/3] exe ファイルをビルド中...
-REM --noconsole: コンソール窓を表示しない
-REM --onefile: 1つのexeにまとめる
-REM --add-data: レポートスクリプトをバンドル
-REM --name: 出力exe名
+echo [3/3] Building exe with PyInstaller...
 
 if exist kagin_icon.ico (
     pyinstaller --noconsole --onefile ^
@@ -45,21 +37,21 @@ if exist kagin_icon.ico (
 )
 
 if %ERRORLEVEL% neq 0 (
-    echo エラー: ビルドに失敗しました
+    echo [ERROR] Build failed.
     pause
     exit /b 1
 )
 
 echo.
 echo ============================================
-echo   ビルド完了!
-echo   出力: dist\KaginReport.exe
+echo   Build Complete!
+echo   Output: dist\KaginReport.exe
 echo ============================================
 echo.
-echo 使い方:
-echo   1. dist\KaginReport.exe を好きな場所にコピー
-echo   2. ダブルクリックで起動
-echo   3. 初回起動時にパスワード入力ダイアログが表示されます
-echo   4. タスクトレイのアイコンを右クリックでメニュー表示
+echo Usage:
+echo   1. Copy dist\KaginReport.exe to your preferred location
+echo   2. Double-click to launch
+echo   3. Password dialog appears on first launch
+echo   4. Right-click tray icon for menu
 echo.
 pause

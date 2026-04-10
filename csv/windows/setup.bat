@@ -1,62 +1,59 @@
 @echo off
-chcp 65001 >nul
+setlocal enabledelayedexpansion
 echo ============================================
-echo   鹿児島銀行レポート - セットアップ
+echo   Kagin Report - Setup
 echo ============================================
 echo.
 
 REM ============================================================
-REM === [1] Python のインストール確認・自動インストール ===
+REM === [1] Check / Install Python ===
 REM ============================================================
-echo [1/5] Python の確認...
+echo [1/5] Checking Python...
 python --version >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
-    echo   Python %PYVER% が見つかりました。
+    echo   Python %PYVER% found.
 ) else (
-    echo   Python が見つかりません。自動インストールを開始します...
+    echo   Python not found. Starting auto-install...
     echo.
 
-    REM winget が使えるか確認
     winget --version >nul 2>&1
     if %ERRORLEVEL% equ 0 (
-        echo   winget で Python 3.11 をインストール中...
+        echo   Installing Python 3.11 via winget...
         winget install Python.Python.3.11 --accept-package-agreements --accept-source-agreements
         if %ERRORLEVEL% neq 0 (
             echo.
-            echo   [エラー] winget でのインストールに失敗しました。
-            echo   https://www.python.org/downloads/ から手動でインストールしてください。
-            echo   ※「Add Python to PATH」に必ずチェックを入れてください。
+            echo   [ERROR] winget install failed.
+            echo   Please install manually from https://www.python.org/downloads/
+            echo   IMPORTANT: Check "Add Python to PATH" during install.
             pause
             exit /b 1
         )
     ) else (
-        echo   winget が利用できません。公式サイトからダウンロードします...
+        echo   winget not available. Opening Python download page...
         echo.
-        echo   ブラウザが開きます。以下の手順でインストールしてください：
-        echo     1. 「Download Python 3.x.x」をクリック
-        echo     2. インストーラーを実行
-        echo     3. ⚠️「Add Python to PATH」に必ずチェックを入れる
-        echo     4. 「Install Now」をクリック
+        echo   Install steps:
+        echo     1. Click "Download Python 3.x.x"
+        echo     2. Run the installer
+        echo     3. CHECK "Add Python to PATH"
+        echo     4. Click "Install Now"
         echo.
         start https://www.python.org/downloads/
-        echo   インストールが完了したら何かキーを押してください...
+        echo   Press any key after installation is complete...
         pause >nul
     )
 
-    REM PATH を再読み込み（新しいcmdセッションで確認）
     echo.
-    echo   Python のインストールを確認中...
+    echo   Verifying Python installation...
 
-    REM 環境変数を更新するため、新しいcmdで確認
     for /f "tokens=2" %%v in ('cmd /c "python --version" 2^>^&1') do set PYVER=%%v
     if defined PYVER (
-        echo   Python %PYVER% のインストールを確認しました。
+        echo   Python %PYVER% confirmed.
     ) else (
         echo.
-        echo   [警告] Python がまだPATHに見つかりません。
-        echo   コマンドプロンプトを一度閉じて、再度 setup.bat を実行してください。
-        echo   （インストール後にPATHが反映されるには再起動が必要な場合があります）
+        echo   [WARNING] Python not found in PATH.
+        echo   Please close this window and run setup.bat again.
+        echo   (PATH changes may require a restart)
         pause
         exit /b 1
     )
@@ -64,124 +61,113 @@ if %ERRORLEVEL% equ 0 (
 echo.
 
 REM ============================================================
-REM === [2] Google Chrome の確認 ===
+REM === [2] Check / Install Google Chrome ===
 REM ============================================================
-echo [2/5] Google Chrome の確認...
+echo [2/5] Checking Google Chrome...
 set "CHROME_FOUND=0"
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
 if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
 if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME_FOUND=1"
 
 if "%CHROME_FOUND%"=="1" (
-    echo   Google Chrome が見つかりました。
+    echo   Google Chrome found.
 ) else (
-    echo   Google Chrome が見つかりません。
+    echo   Google Chrome not found.
     echo.
-    choice /c YN /m "  Google Chrome を自動インストールしますか？ (Y/N)"
-    if %ERRORLEVEL% equ 1 (
+    choice /c YN /m "  Install Google Chrome automatically? (Y/N)"
+    if !ERRORLEVEL! equ 1 (
         winget --version >nul 2>&1
-        if %ERRORLEVEL% equ 0 (
-            echo   winget で Google Chrome をインストール中...
+        if !ERRORLEVEL! equ 0 (
+            echo   Installing Google Chrome via winget...
             winget install Google.Chrome --accept-package-agreements --accept-source-agreements
         ) else (
-            echo   ブラウザが開きます。Chrome をインストールしてください。
+            echo   Opening Chrome download page...
             start https://www.google.com/chrome/
-            echo   インストールが完了したら何かキーを押してください...
+            echo   Press any key after installation is complete...
             pause >nul
         )
     ) else (
-        echo   [警告] Chrome なしでは動作しません。後で必ずインストールしてください。
+        echo   [WARNING] Chrome is required. Please install it later.
     )
 )
 echo.
 
 REM ============================================================
-REM === [3] 依存パッケージのインストール ===
+REM === [3] Install Python packages ===
 REM ============================================================
-echo [3/5] Python パッケージをインストール中...
+echo [3/5] Installing Python packages...
 pip install -r requirements_win.txt
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo   [エラー] パッケージのインストールに失敗しました。
+    echo   [ERROR] Package installation failed.
     pause
     exit /b 1
 )
-echo   パッケージのインストール完了。
+echo   Packages installed successfully.
 echo.
 
 REM ============================================================
-REM === [4] .env ファイルの確認 ===
+REM === [4] Check .env file (Slack token) ===
 REM ============================================================
-echo [4/5] 設定ファイルの確認...
+echo [4/5] Checking .env config file...
 if exist ".env" (
-    echo   .env ファイルが見つかりました。
+    echo   .env file found.
 ) else (
-    echo   .env ファイルが見つかりません。
-    echo   Slackトークンの設定が必要です。
+    echo   .env file not found. Slack token setup required.
     echo.
-    set /p "SLACK_TOKEN=  Slack Bot Token を入力してください: "
+    set /p "SLACK_TOKEN=  Enter Slack Bot Token: "
     if defined SLACK_TOKEN (
-        echo # 鹿児島銀行レポートシステム設定ファイル> .env
-        echo SLACK_BOT_TOKEN=%SLACK_TOKEN%>> .env
-        echo   .env ファイルを作成しました。
+        echo SLACK_BOT_TOKEN=%SLACK_TOKEN%> .env
+        echo   .env file created.
     ) else (
-        echo   [警告] .env ファイルを手動で作成してください。
+        echo   [WARNING] Please create .env file manually.
     )
 )
 echo.
 
 REM ============================================================
-REM === [5] 自動起動の登録 ===
+REM === [5] Auto-start on Windows boot ===
 REM ============================================================
-echo [5/5] 自動起動の設定...
-echo Windows起動時の自動起動を設定しますか？
-echo.
-choice /c YN /m "自動起動を有効にする (Y/N)"
+echo [5/5] Auto-start configuration...
+choice /c YN /m "Enable auto-start on Windows boot? (Y/N)"
 if %ERRORLEVEL% equ 1 (
     echo.
-    echo 自動起動を登録中...
-
-    REM 現在のディレクトリにある KaginReport.exe のパスを取得
     set "EXE_PATH=%~dp0KaginReport.exe"
 
     if exist "%EXE_PATH%" (
         reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v KaginReport /t REG_SZ /d "\"%EXE_PATH%\"" /f
-        echo 自動起動を登録しました: %EXE_PATH%
+        echo   Auto-start registered: %EXE_PATH%
     ) else (
         echo.
-        echo KaginReport.exe が見つかりません。
-        echo 先に build.bat でビルドし、dist\KaginReport.exe をこのフォルダにコピーしてください。
+        echo   KaginReport.exe not found.
+        echo   Run build.bat first, then copy dist\KaginReport.exe here.
     )
 ) else (
-    echo 自動起動の設定をスキップしました。
-    echo 後からトレイアイコンのメニューでも設定できます。
+    echo   Skipped. You can enable this later from the tray icon menu.
 )
 
 echo.
 
-REM === パスワードの事前設定 ===
+REM === Bank password setup ===
 echo.
-echo パスワードを事前に設定しますか？
-echo （アプリ初回起動時にも設定できます）
-echo.
-choice /c YN /m "今すぐパスワードを設定する (Y/N)"
+choice /c YN /m "Set bank password now? (Y/N)"
 if %ERRORLEVEL% equ 1 (
     echo.
-    python -c "import keyring; pw = input('銀行パスワードを入力: '); keyring.set_password('kagin_bank', 'kagin_assist', pw); print('パスワードを保存しました')"
+    python -c "import keyring; pw = input('Enter bank password: '); keyring.set_password('kagin_bank', 'kagin_assist', pw); print('Password saved.')"
     if %ERRORLEVEL% neq 0 (
         echo.
-        echo パスワード設定に失敗しました。アプリ起動時に設定してください。
+        echo   Password setup failed. You can set it when the app starts.
     )
 ) else (
-    echo アプリ初回起動時にパスワード入力ダイアログが表示されます。
+    echo   Password dialog will appear on first app launch.
 )
 
 echo.
 echo ============================================
-echo   セットアップ完了
+echo   Setup Complete!
 echo ============================================
 echo.
-echo KaginReport.exe をダブルクリックして起動してください。
-echo タスクトレイにアイコンが表示されます。
+echo Double-click KaginReport.exe to start.
+echo The app icon will appear in the system tray.
 echo.
 pause
