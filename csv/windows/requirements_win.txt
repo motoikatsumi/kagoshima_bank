@@ -1,0 +1,6 @@
+selenium
+requests
+keyring
+pystray
+Pillow
+pyinstaller
