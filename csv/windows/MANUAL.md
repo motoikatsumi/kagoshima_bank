@@ -27,32 +27,7 @@
 
 ## 3. セットアップ手順
 
-### 3-1. Python のインストール
-
-1. https://www.python.org/downloads/ からPython 3.11以上をダウンロード
-2. インストーラーを実行
-3. **⚠️「Add Python to PATH」に必ずチェックを入れる**
-4. 「Install Now」をクリック
-
-#### 確認
-コマンドプロンプト（`Win + R` → `cmd` → Enter）で以下を実行：
-```
-python --version
-```
-`Python 3.11.x` のように表示されればOK。
-
----
-
-### 3-2. Google Chrome のインストール
-
-※既にインストール済みなら不要。
-
-1. https://www.google.com/chrome/ からダウンロード・インストール
-2. 一度起動して初期設定を完了させておく
-
----
-
-### 3-3. ファイルの配置
+### 3-1. ファイルの配置
 
 `windows` フォルダの中身を、Windows PCの任意の場所にコピーします。
 
@@ -61,33 +36,62 @@ python --version
 C:\KaginReport\
   ├── kagin_app.py                  ← メインアプリ（トレイ常駐）
   ├── kagin_slack_report_win.py     ← 銀行処理スクリプト
+  ├── .env                          ← Slackトークン設定（Git管理外）
   ├── requirements_win.txt          ← 依存パッケージ一覧
   ├── build.bat                     ← exeビルド用
-  ├── setup.bat                     ← 自動起動・パスワード設定用
+  ├── setup.bat                     ← 一括セットアップ
   └── generate_icon.py              ← アイコン生成用
 ```
 
 ---
 
-### 3-4. 依存パッケージのインストール
+### 3-2. setup.bat を実行（全自動セットアップ）
 
-コマンドプロンプトを開き、配置先フォルダに移動：
+**`setup.bat` をダブルクリックするだけで以下が全て自動で行われます：**
+
 ```
-cd C:\KaginReport
-pip install -r requirements_win.txt
+C:\KaginReport\setup.bat をダブルクリック
 ```
 
-以下のパッケージがインストールされます：
-- `selenium` — ブラウザ自動操作
-- `requests` — Slack API通信
-- `keyring` — Windows資格情報マネージャー連携
-- `pystray` — タスクトレイアイコン
-- `Pillow` — アイコン画像生成
-- `pyinstaller` — exe化ツール
+`setup.bat` が実行する内容：
+
+| ステップ | 内容 |
+|----------|------|
+| **[1/5]** | **Python 自動インストール** — 未インストールなら `winget` で自動導入 |
+| **[2/5]** | **Chrome 確認** — 未インストールなら自動 or 手動インストールを案内 |
+| **[3/5]** | **依存パッケージ** — `pip install -r requirements_win.txt` を自動実行 |
+| **[4/5]** | **.env 設定** — Slackトークンの入力（未設定の場合） |
+| **[5/5]** | **自動起動設定** — Windows起動時の自動起動ON/OFF |
+
+その後、パスワード設定の案内が表示されます。
+
+> **💡 `winget` について:** Windows 10（バージョン1709以降）/ Windows 11 に標準搭載のパッケージマネージャーです。`winget` が使えない古い環境では、ブラウザが自動で開き手動インストールを案内します。
+
+#### 手動でインストールする場合（参考）
+
+<details>
+<summary>Python を手動でインストールする場合</summary>
+
+1. https://www.python.org/downloads/ からPython 3.11以上をダウンロード
+2. インストーラーを実行
+3. **⚠️「Add Python to PATH」に必ずチェックを入れる**
+4. 「Install Now」をクリック
+
+確認: コマンドプロンプトで `python --version` を実行
+
+</details>
+
+<details>
+<summary>Chrome を手動でインストールする場合</summary>
+
+1. https://www.google.com/chrome/ からダウンロード・インストール
+2. 一度起動して初期設定を完了させておく
+
+</details>
 
 ---
 
-### 3-5. exe ファイルの作成
+### 3-3. exe ファイルの作成（任意）
 
 コマンドプロンプトで以下を実行するか、`build.bat` をダブルクリック：
 ```
