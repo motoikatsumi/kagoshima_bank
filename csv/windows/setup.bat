@@ -128,7 +128,7 @@ echo.
 REM ============================================================
 REM === [5] Auto-start on Windows boot ===
 REM ============================================================
-echo [5/5] Auto-start configuration...
+echo [5/6] Auto-start configuration...
 choice /c YN /m "Enable auto-start on Windows boot? (Y/N)"
 if %ERRORLEVEL% equ 1 (
     echo.
@@ -141,6 +141,26 @@ if %ERRORLEVEL% equ 1 (
         echo.
         echo   KaginReport.exe not found.
         echo   Run build.bat first, then copy dist\KaginReport.exe here.
+    )
+) else (
+    echo   Skipped. You can enable this later from the tray icon menu.
+)
+
+echo.
+
+REM ============================================================
+REM === [6] Wake-from-sleep schedule ===
+REM ============================================================
+echo [6/6] Wake-from-sleep configuration...
+echo   This creates Task Scheduler tasks that wake your PC
+echo   from sleep at scheduled times (08:50, 11:50, 14:50, 18:20).
+echo.
+choice /c YN /m "Enable wake-from-sleep schedule? (Y/N)"
+if %ERRORLEVEL% equ 1 (
+    echo.
+    python -c "import sys; sys.path.insert(0,'.'); from kagin_app import enable_wake_schedule; r=enable_wake_schedule(); print('Wake schedule registered.' if r else 'Some tasks failed.')"
+    if %ERRORLEVEL% neq 0 (
+        echo   Failed. You can enable this later from the tray icon menu.
     )
 ) else (
     echo   Skipped. You can enable this later from the tray icon menu.

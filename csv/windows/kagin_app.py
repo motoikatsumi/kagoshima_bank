@@ -196,6 +196,158 @@ def toggle_autostart(icon, menu_item):
 
 
 # ============================================================
+# スリープ解除タスク（タスクスケジューラ）
+# ============================================================
+
+TASK_NAME_PREFIX = "KaginReport_Wake"
+
+
+def _build_task_xml(time_str, exe_path):
+    """タスクスケジューラ用XMLを生成（スリープ解除 + アプリ起動）"""
+    h, m = time_str.split(":")
+    # アプリが既に起動中なら内蔵スケジューラが処理するため、
+    # タスクは「アプリが起動していない場合の保険」として機能
+    if getattr(sys, 'frozen', False):
+        command = exe_path
+        arguments = ""
+    else:
+        command = sys.executable
+        arguments = f'"{exe_path}"'
+
+    xml = f'''<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Kagin Report - Wake and run at {time_str}</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-01-01T{h}:{m}:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>true</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{command}</Command>
+      <Arguments>{arguments}</Arguments>
+      <WorkingDirectory>{APP_DIR}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>'''
+    return xml
+
+
+def is_wake_schedule_enabled():
+    """スリープ解除タスクが登録されているか確認"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["schtasks", "/Query", "/TN", f"{TASK_NAME_PREFIX}_0850"],
+            capture_output=True, text=True, timeout=10
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def enable_wake_schedule():
+    """全スケジュール時刻のスリープ解除タスクを登録"""
+    import subprocess
+    import tempfile
+
+    exe_path = APP_EXE
+    success = True
+
+    for stime in SCHEDULE_TIMES:
+        task_name = f"{TASK_NAME_PREFIX}_{stime.replace(':', '')}"
+        xml_content = _build_task_xml(stime, exe_path)
+
+        # XMLを一時ファイルに書き出し
+        tmp_path = os.path.join(tempfile.gettempdir(), f"{task_name}.xml")
+        try:
+            with open(tmp_path, "w", encoding="utf-16") as f:
+                f.write(xml_content)
+
+            result = subprocess.run(
+                ["schtasks", "/Create", "/TN", task_name, "/XML", tmp_path, "/F"],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                logger.info(f"Wake task registered: {task_name} ({stime})")
+            else:
+                logger.error(f"Wake task failed: {task_name}: {result.stderr}")
+                success = False
+        except Exception as e:
+            logger.error(f"Wake task error: {task_name}: {e}")
+            success = False
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+    return success
+
+
+def disable_wake_schedule():
+    """全スケジュール時刻のスリープ解除タスクを削除"""
+    import subprocess
+
+    success = True
+    for stime in SCHEDULE_TIMES:
+        task_name = f"{TASK_NAME_PREFIX}_{stime.replace(':', '')}"
+        try:
+            result = subprocess.run(
+                ["schtasks", "/Delete", "/TN", task_name, "/F"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                logger.info(f"Wake task removed: {task_name}")
+            else:
+                logger.warning(f"Wake task delete failed: {task_name}: {result.stderr.strip()}")
+        except Exception as e:
+            logger.error(f"Wake task delete error: {task_name}: {e}")
+            success = False
+
+    return success
+
+
+def toggle_wake_schedule(icon, menu_item):
+    """スリープ解除スケジュールのON/OFF切替"""
+    if is_wake_schedule_enabled():
+        disable_wake_schedule()
+        icon.notify("Sleep wake schedule disabled", APP_NAME)
+    else:
+        if enable_wake_schedule():
+            icon.notify("Sleep wake schedule enabled", APP_NAME)
+        else:
+            icon.notify("Failed to set wake schedule (need admin?)", APP_NAME)
+
+
+# ============================================================
 # パスワード管理
 # ============================================================
 
@@ -438,6 +590,12 @@ def build_tray_app():
             return "✅ Windows起動時に自動起動"
         return "  Windows起動時に自動起動"
 
+    def get_wake_text(menu_item):
+        """スリープ解除スケジュールのステータステキスト"""
+        if is_wake_schedule_enabled():
+            return "✅ スリープ解除で自動実行"
+        return "  スリープ解除で自動実行"
+
     # メニュー構成
     menu = pystray.Menu(
         item(get_status_text, None, enabled=False),
@@ -446,6 +604,7 @@ def build_tray_app():
         pystray.Menu.SEPARATOR,
         item("🔑 パスワード設定", on_set_password),
         item(get_autostart_text, toggle_autostart),
+        item(get_wake_text, toggle_wake_schedule),
         item("📄 ログを開く", on_open_log),
         pystray.Menu.SEPARATOR,
         item("終了", on_quit),
